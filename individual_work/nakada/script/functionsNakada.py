@@ -3,6 +3,8 @@ import pandas as pd
 from pandas.io.stata import StataReader
 import fitz
 
+root = 'data_output/'
+
 
 stateNames1 = [
     'Andhra Pradesh',
@@ -121,15 +123,18 @@ def listVariable(state_dir, return_file):
 
     return True
 
+
 def extractUniqueValue(df, col):
     return df[col].unique()
+
 
 def extractTextFromPDF(source, pages):
     res = {}
     doc = fitz.open(source)
     for num in pages:
-        res[num]=doc.load_page(num).get_text()
+        res[num] = doc.load_page(num).get_text()
     return res
+
 
 def formatText(myText, stateNames):
     lines = myText.strip().split('\n')
@@ -165,6 +170,7 @@ def formatText(myText, stateNames):
 
     return result
 
+
 def is_number(string):
     """Check if a string represents a valid number (including decimals) or is '-'."""
     if string == "-":
@@ -174,6 +180,7 @@ def is_number(string):
         return True
     except ValueError:
         return False
+
 
 def getTableFromPDF(sourceNum, pages):
 
@@ -188,11 +195,11 @@ def getTableFromPDF(sourceNum, pages):
         return True
 
     match sourceNum:
-        case 1: 
+        case 1:
             source = 'data_original/CAMS Report_October_N.pdf'
             output = 'data_processed/CAMS_page_'
             stateName = stateNames1
-        case 2: 
+        case 2:
             source = 'data_original/Final_Report_HCES_2023-24L.pdf'
             output = 'data_processed/HCES_page_'
             stateName = stateNames2
@@ -218,9 +225,10 @@ def getTableFromPDF(sourceNum, pages):
             if (saveFlag == 'y') or (saveFlag == 'Y'):
                 fileName = output + str(i) + '.csv'
                 df.to_csv(fileName, index=False)
-            res[i]=df
+            res[i] = df
 
         return res
+
 
 def importWB(database_id, indicator_id, year_from, year_to):
     import requests
@@ -252,6 +260,7 @@ def importWB(database_id, indicator_id, year_from, year_to):
 # mydf_Fertilizer = importWB("WB_WDI", "WB_WDI_AG_CON_FERT_ZS", "2000", "2025")
 # print(mydf_ICTPolicy.head())
 
+
 def filterWB(df, countries, colNames, newColNames):
     filtered_df = df[df['REF_AREA'].isin(countries)][colNames]
     filtered_df.columns = newColNames
@@ -265,6 +274,7 @@ def filterWB(df, countries, colNames, newColNames):
 
 # mydf_ICTPolicy_filtered = filterDF(mydf_ICTPolicy, asianCountries, ["REF_AREA", "TIME_PERIOD", "OBS_VALUE"], ["areaCode", "year", "ICTPolicy"])
 
+
 def setIndexWB(df, key):
     return df.set_index(key)
 
@@ -274,7 +284,79 @@ def setIndexWB(df, key):
 # mydf_Value_AgProcessing_indexed = setIndex(mydf_Value_AgProcessing_filtered, ["areaCode", "year"])
 # mydf_Fertilizer_indexed = setIndex(mydf_Fertilizer_filtered, ["areaCode", "year"])
 
+
 def exportCSV(df, fileName):
     output = 'data_processed/' + fileName + '.csv'
     df.to_csv(output)
     return True
+
+
+root = 'data_output/'
+#
+# Define parameters: area, element, item, year
+FBSdata = {'db': 'FBS',
+           'dbName': 'Food Balances (2010-)',
+           'element': {'Production Quantity': '2510', 'Domestic supply quantity': '2300', 'Food supply quantity (kg/capita/yr)': '645', 'Losses': '2120'},
+           'item': {'Cereals - Excluding Beer + (Total)': '2905', 'Starchy Roots + (Total)': '2907', 'Pulses + (Total)': '2911',
+                    'Treenuts + (Total)': '2912', 'Oilcrops + (Total)': '2913', 'Vegetable Oils + (Total)': '2914',
+                    'Vegetables + (Total)': '2918', 'Fruits - Excluding Wine + (Total)': '2919', 'Meat + (Total)': '2943',
+                    'Offals + (Total)': '2945', 'Animal fats + (Total)': '2946', 'Eggs + (Total)': '2949',
+                    'Milk - Excluding Butter + (Total)': '2948', 'Fish, Seafood + (Total)': '2960'}, 'area': {'Africa > (List)': '5100>'},
+           'year': [2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+           }
+
+
+def setParams(dbDictionary):
+    element_list = list(dbDictionary['element'].values())
+    item_list = list(dbDictionary['item'].values())
+    area_list = list(dbDictionary['area'].values())ß
+    year_list = dbDictionary['year']
+    result = {
+        # 'db': dbDictionary['db'],
+        'element': element_list,
+        'item': item_list,
+        'area': area_list,
+        'year': year_list
+    }
+    return result
+
+
+def importFAO(db, params, pivot=False):
+    # Download data as a pandas DataFrame
+    df = faostat.get_data_df(db, pars=params)
+
+    if pivot == False:
+        # if pivot = false, return the raw data
+        return df
+    else:
+        # if pivot = True, df is transformed by using "element" and "item"
+        # Combine 'element' and 'item' into a single column for unique column names
+        df['col_name'] = df['Element'] + '_' + df['Item']
+
+        # convert text to numeric, it not working give NA
+        df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
+
+        # Pivot the table
+        df_pivot = df.pivot_table(
+            index=['Area', 'Year'],
+            columns='col_name',
+            values='Value'
+        ).reset_index()
+        return df_pivot
+
+
+# # Define parameters: area, element, item, year
+# mypars = {
+#     'area': '4',  # Afghanistan (use faostat.get_par('QCL', 'area') to get codes)
+#     'element': [2413],  # Area harvested (use faostat.get_par('QCL', 'element') to get codes)
+#     'item': '1735>',  # Almonds, with shell (use faostat.get_par('QCL', 'item') to get codes)
+#     'year': [2014, 2023]
+# }  
+################################ calculate self sufficiency ratio #################################
+mypars = setParams(FBSdata)
+
+df_FBS = importFAO('FBS', mypars, pivot=True)
+
+# Calculate rolling mean for comparison
+df_FBS['rolling_std'] = df_FBS['Food supply quantity (kg/capita/yr)_Cereals - Excluding Beer'].rolling(
+    window=5).std()
