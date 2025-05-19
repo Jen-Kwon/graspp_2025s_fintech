@@ -4,6 +4,8 @@ import faostat
 root = 'Data/processed/'
 
 
+# exportCSV function
+# this function exports a pandas DataFrame to a CSV file
 def exportCSV(df, fileName):
     output = root + fileName + '.csv'
     df.to_csv(output)
@@ -28,6 +30,7 @@ FBSdata = {'db': 'FBS',
 # }  
 
 
+# Define parameters for importFAO: area, element, item, year using a dictionary
 def setParams(dbDictionary):
     element_list = list(dbDictionary['element'].values())
     item_list = list(dbDictionary['item'].values())
@@ -43,6 +46,8 @@ def setParams(dbDictionary):
     return result
 
 
+# importFAO function
+# this function imports data from FAO database using the faostat package and uses the parameters defined in setParams
 def importFAO(db, params, pivot=False):
     # Download data as a pandas DataFrame
     df = faostat.get_data_df(db, pars=params)
